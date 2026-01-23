@@ -43,7 +43,7 @@ pull requests, releases, and active development.
 
 1. Mirror sync updates `mirror/staging` from upstream.
 2. Developer runs `new-branch.sh codex/my-feature` to create a branch.
-3. PR is opened in **HacksHaven/zyra** with base = `mirror/staging`.
+3. PR is opened in **zyra-project/zyra** with base = `mirror/staging`.
 4. Relay bot mirrors the PR to **NOAA-GSL/zyra:staging** as `relay/hh-pr-###`.
 
 ---
@@ -104,7 +104,7 @@ This will create/update `mirror/main` and mirror all upstream tags.
   - Protect `main`, `staging`  
   - Require PRs, checks, CODEOWNERS
 
-- **HacksHaven/zyra**  
+- **zyra-project/zyra**  
   - Protect `mirror/main`, `mirror/staging` (allow force push only for bot)  
   - Leave `codex/*` open for Codex automation  
   - Protect `main` for local workflows and docs

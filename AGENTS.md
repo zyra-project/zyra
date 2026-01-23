@@ -10,7 +10,7 @@
 
 ## TL;DR
 
-- ✅ **Create new branches here** (`HacksHaven/zyra`) under `codex/*` or `feat/*`.  
+- ✅ **Create new branches here** (`zyra-project/zyra`) under `codex/*` or `feat/*`.  
 - ✅ Open PRs **against `mirror/staging`** in this repo.  
 - 🤖 The relay workflow will **rebase and open/update a PR upstream** in `NOAA-GSL/zyra:staging`.  
 - 🚫 **Never** commit to `mirror/*` — they are overwritten by automation.  
@@ -116,7 +116,7 @@ Types: `feat`, `fix`, `docs`, `chore`, `refactor`, `perf`, `test`, `build`, `ci`
 
 ## Pull Requests (Downstream → Upstream)
 
-- **Open in HacksHaven/zyra**, base = `mirror/staging`.
+- **Open in zyra-project/zyra**, base = `mirror/staging`.
 - Relay workflow creates/updates **org PR** automatically.  
 - Title/body will reference the original PR for traceability.
 - Do **not** merge downstream PRs manually. Close them if not needed.  
@@ -165,7 +165,7 @@ Types: `feat`, `fix`, `docs`, `chore`, `refactor`, `perf`, `test`, `build`, `ci`
 A: No. They are overwritten by automation.  
 
 **Q: Where should I open PRs?**  
-A: Here in `HacksHaven/zyra`, base = `mirror/staging`. The relay bot will create the org PR.  
+A: Here in `zyra-project/zyra`, base = `mirror/staging`. The relay bot will create the org PR.  
 
 **Q: Should I open PRs directly in NOAA-GSL/zyra?**  
 A: Only maintainers do that. Normal flow is: downstream PR → relay → upstream PR.  

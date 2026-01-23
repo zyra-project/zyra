@@ -3,8 +3,8 @@
 This repository contains a workflow that keeps a copy of the upstream  
 [`NOAA-GSL/zyra`](https://github.com/NOAA-GSL/zyra) repository in this repo, but **safely isolated under `mirror/*` branches**.
 
-⚠️ For contribution rules (branching, PRs, relay), see [AGENTS.md](./AGENTS.md).  
-⚠️ For overall project context, see the main [README.md](./README.md).
+⚠️ For contribution rules (branching, PRs, relay), see [AGENTS.md](../../AGENTS.md).  
+⚠️ For overall project context, see the main [README.md](../../README.md).
 
 ---
 
@@ -84,5 +84,5 @@ This will create/update `mirror/main` and mirror all upstream tags.
 ---
 
 ## See also
-- [README.md](./README.md) — Overview of downstream repo purpose & relay workflow  
-- [AGENTS.md](./AGENTS.md) — Contribution guide for Codex branches, PR flow, and relay rules 
+- [README.md](../../README.md) — Overview of downstream repo purpose & relay workflow  
+- [AGENTS.md](../../AGENTS.md) — Contribution guide for Codex branches, PR flow, and relay rules 

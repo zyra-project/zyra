@@ -5,9 +5,9 @@ This repository contains workflows that keep a copy of the upstream
 while also supporting **local branches** and **relay of PRs** back into the
 canonical org repo.
 
-⚠️ **Note:** This is *not* the canonical repository. Please go to the
-[NOAA-GSL organization repo](https://github.com/NOAA-GSL/zyra) for issues,
-pull requests, releases, and active development.
+⚠️ **Note:** This is *not* the canonical repository. The source of truth is
+[NOAA-GSL/zyra](https://github.com/NOAA-GSL/zyra) for releases and active development.
+However, **issues are synced bidirectionally** — you can view and close upstream issues here.
 
 ---
 
@@ -36,6 +36,13 @@ pull requests, releases, and active development.
 - Creates or updates a PR in the org repo with base = `staging`.
 - Closes the org PR automatically if the HH PR is closed.
 - Requires the `SYNC_PAT_ORG` secret with **push + PR rights** in the upstream org.
+
+### 4. Issue Sync
+- Runs every 30 minutes to mirror issues from `NOAA-GSL/zyra` here.
+- Mirrored issues are labeled `upstream-sync` and link back to the original.
+- **Bidirectional status sync**: closing or reopening a synced issue here
+  updates the upstream issue (and vice versa on the next sync).
+- Allows contributors to work on upstream issues from this repo.
 
 ---
 
@@ -112,18 +119,23 @@ This will create/update `mirror/main` and mirror all upstream tags.
 ---
 
 ### TL;DR
-- ✅ Keeps NOAA-GSL code mirrored here under `mirror/*`.  
-- ✅ Provides a safe place for Codex (and helpers) to open PRs.  
-- ✅ Relays Codex PRs upstream into NOAA-GSL/zyra:staging.  
-- ✅ Prevents running unwanted upstream Actions.  
-- ✅ Protects your own workflows and content.  
+- ✅ Keeps NOAA-GSL code mirrored here under `mirror/*`.
+- ✅ Provides a safe place for Codex (and helpers) to open PRs.
+- ✅ Relays Codex PRs upstream into NOAA-GSL/zyra:staging.
+- ✅ Syncs issues bidirectionally — view and resolve upstream issues here.
+- ✅ Prevents running unwanted upstream Actions.
+- ✅ Protects your own workflows and content.
 - ✅ Gives you full control over what branches/tags are synced.
 
 ---
 
 ## Where to contribute
 
-If you want to contribute code, file issues, or discuss features, use the **upstream repo**:  
-👉 [NOAA-GSL/zyra](https://github.com/NOAA-GSL/zyra)
+**Code contributions:** Open PRs here against `mirror/staging` — they'll be relayed upstream.
 
-This downstream is read-only, maintained by automation.
+**Issues:** Upstream issues are mirrored here with the `upstream-sync` label. You can:
+- View and work on them locally
+- Close them here (status syncs back to upstream)
+- Or file new issues directly at [NOAA-GSL/zyra](https://github.com/NOAA-GSL/zyra/issues)
+
+**Releases & tags:** Managed upstream only at [NOAA-GSL/zyra](https://github.com/NOAA-GSL/zyra).

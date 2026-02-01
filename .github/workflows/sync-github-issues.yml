@@ -63,21 +63,23 @@ jobs:
             const syncLabel = process.env.SYNC_LABEL;
             const upstreamMarker = process.env.UPSTREAM_MARKER;
             const dryRun = process.env.DRY_RUN === 'true';
+            const orgToken = process.env.ORG_TOKEN;
 
-            // getOctokit is provided by actions/github-script as a script parameter
-            const orgOctokit = getOctokit(process.env.ORG_TOKEN);
+            // Helper to make authenticated requests to upstream repo
+            const upstreamAuth = { authorization: `token ${orgToken}` };
 
             console.log(`🔄 Syncing issues from ${upstreamOwner}/${upstreamRepo} → ${downstreamOwner}/${downstreamRepo}`);
             if (dryRun) console.log('🧪 DRY RUN MODE - no changes will be made');
 
             // Fetch the 100 most recently updated issues from upstream (single page to avoid rate limits)
-            const { data: upstreamIssues } = await orgOctokit.rest.issues.listForRepo({
+            const { data: upstreamIssues } = await github.request('GET /repos/{owner}/{repo}/issues', {
               owner: upstreamOwner,
               repo: upstreamRepo,
               state: 'all',
               per_page: 100,
               sort: 'updated',
-              direction: 'desc'
+              direction: 'desc',
+              headers: upstreamAuth
             });
 
             // Filter out pull requests (they have a pull_request key)
@@ -207,9 +209,10 @@ jobs:
             const syncLabel = process.env.SYNC_LABEL;
             const upstreamMarker = process.env.UPSTREAM_MARKER;
             const dryRun = process.env.DRY_RUN === 'true';
+            const orgToken = process.env.ORG_TOKEN;
 
-            // getOctokit is provided by actions/github-script as a script parameter
-            const orgOctokit = getOctokit(process.env.ORG_TOKEN);
+            // Helper to make authenticated requests to upstream repo
+            const upstreamAuth = { authorization: `token ${orgToken}` };
 
             // If triggered by an issue event, only process that issue
             if (context.eventName === 'issues') {
@@ -246,10 +249,11 @@ jobs:
               }
 
               // Fetch upstream issue to check if state already matches
-              const { data: upstreamIssue } = await orgOctokit.rest.issues.get({
+              const { data: upstreamIssue } = await github.request('GET /repos/{owner}/{repo}/issues/{issue_number}', {
                 owner: upstreamOwner,
                 repo: upstreamRepo,
-                issue_number: upstreamNum
+                issue_number: upstreamNum,
+                headers: upstreamAuth
               });
 
               // Security: verify upstream reference is an issue, not a PR
@@ -267,20 +271,22 @@ jobs:
 
               if (!dryRun) {
                 // Update upstream issue state
-                await orgOctokit.rest.issues.update({
+                await github.request('PATCH /repos/{owner}/{repo}/issues/{issue_number}', {
                   owner: upstreamOwner,
                   repo: upstreamRepo,
                   issue_number: upstreamNum,
-                  state: newState
+                  state: newState,
+                  headers: upstreamAuth
                 });
 
                 // Add a comment to upstream issue
                 const downstreamLink = `https://github.com/${downstreamOwner}/${downstreamRepo}/issues/${issue.number}`;
-                await orgOctokit.rest.issues.createComment({
+                await github.request('POST /repos/{owner}/{repo}/issues/{issue_number}/comments', {
                   owner: upstreamOwner,
                   repo: upstreamRepo,
                   issue_number: upstreamNum,
-                  body: `🔄 Issue ${action} via downstream mirror: [${downstreamOwner}/${downstreamRepo}#${issue.number}](${downstreamLink})`
+                  body: `🔄 Issue ${action} via downstream mirror: [${downstreamOwner}/${downstreamRepo}#${issue.number}](${downstreamLink})`,
+                  headers: upstreamAuth
                 });
               }
 
@@ -308,21 +314,23 @@ jobs:
               const upNum = parseInt(match[1], 10);
 
               try {
-                const { data: upIssue } = await orgOctokit.rest.issues.get({
+                const { data: upIssue } = await github.request('GET /repos/{owner}/{repo}/issues/{issue_number}', {
                   owner: upstreamOwner,
                   repo: upstreamRepo,
-                  issue_number: upNum
+                  issue_number: upNum,
+                  headers: upstreamAuth
                 });
 
                 if (di.state !== upIssue.state) {
                   console.log(`🔄 Status mismatch: downstream #${di.number} is ${di.state}, upstream #${upNum} is ${upIssue.state}`);
                   // Downstream state takes precedence in this direction
                   if (!dryRun) {
-                    await orgOctokit.rest.issues.update({
+                    await github.request('PATCH /repos/{owner}/{repo}/issues/{issue_number}', {
                       owner: upstreamOwner,
                       repo: upstreamRepo,
                       issue_number: upNum,
-                      state: di.state
+                      state: di.state,
+                      headers: upstreamAuth
                     });
                   }
                   synced++;

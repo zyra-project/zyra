@@ -64,8 +64,9 @@ jobs:
             const upstreamMarker = process.env.UPSTREAM_MARKER;
             const dryRun = process.env.DRY_RUN === 'true';
 
-            // getOctokit is provided by actions/github-script as a script parameter
-            const orgOctokit = getOctokit(process.env.ORG_TOKEN);
+            // Create Octokit instance for upstream repo using the org PAT
+            const { Octokit } = require('@octokit/rest');
+            const orgOctokit = new Octokit({ auth: process.env.ORG_TOKEN });
 
             console.log(`🔄 Syncing issues from ${upstreamOwner}/${upstreamRepo} → ${downstreamOwner}/${downstreamRepo}`);
             if (dryRun) console.log('🧪 DRY RUN MODE - no changes will be made');
@@ -208,8 +209,9 @@ jobs:
             const upstreamMarker = process.env.UPSTREAM_MARKER;
             const dryRun = process.env.DRY_RUN === 'true';
 
-            // getOctokit is provided by actions/github-script as a script parameter
-            const orgOctokit = getOctokit(process.env.ORG_TOKEN);
+            // Create Octokit instance for upstream repo using the org PAT
+            const { Octokit } = require('@octokit/rest');
+            const orgOctokit = new Octokit({ auth: process.env.ORG_TOKEN });
 
             // If triggered by an issue event, only process that issue
             if (context.eventName === 'issues') {

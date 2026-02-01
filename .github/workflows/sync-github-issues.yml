@@ -335,6 +335,6 @@ jobs:
       - name: Summary
         if: always()
         run: |
-          echo "Issue sync completed at $(date -u +"%Y-%m-%dT%H:%M:%SZ")"
+          echo "Issue sync completed at $(date -u +'%Y-%m-%dT%H:%M:%SZ')"
           echo "Event: ${{ github.event_name }}"
           echo "Direction: ${{ github.event.inputs.direction || 'auto' }}"

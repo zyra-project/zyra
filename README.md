@@ -34,7 +34,7 @@ However, **issues are synced bidirectionally** — you can view and close upstre
 - Pushes to a deterministic branch in the org repo:
   `relay/hh-pr-<number>`.
 - Creates or updates a PR in the org repo with base = `staging`.
-- Closes the org PR automatically if the HH PR is closed.
+- Closes the org PR automatically if the downstream PR is closed.
 - Requires the `SYNC_PAT_ORG` secret with **push + PR rights** in the upstream org.
 
 ### 4. Issue Sync

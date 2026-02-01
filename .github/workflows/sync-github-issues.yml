@@ -1,0 +1,297 @@
+name: Sync GitHub Issues (NOAA-GSL ↔ zyra-project)
+
+on:
+  schedule:
+    - cron: "*/30 * * * *"     # every 30 minutes
+  issues:
+    types: [opened, closed, reopened, edited, labeled, unlabeled]
+  workflow_dispatch:
+    inputs:
+      direction:
+        description: "Sync direction"
+        required: false
+        default: "both"
+        type: choice
+        options:
+          - both
+          - upstream-to-downstream
+          - downstream-to-upstream
+      dry_run:
+        description: "Dry run (no changes made)"
+        required: false
+        default: false
+        type: boolean
+
+permissions:
+  contents: read
+  issues: write
+
+concurrency:
+  group: sync-issues
+  cancel-in-progress: false
+
+env:
+  UPSTREAM_OWNER: NOAA-GSL
+  UPSTREAM_REPO: zyra
+  DOWNSTREAM_OWNER: zyra-project
+  DOWNSTREAM_REPO: zyra
+  SYNC_LABEL: "upstream-sync"
+  UPSTREAM_MARKER: "<!-- upstream-issue:"
+  DOWNSTREAM_MARKER: "<!-- downstream-issue:"
+
+jobs:
+  sync-issues:
+    name: Sync issues between repositories
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+
+    steps:
+      - name: Sync upstream issues to downstream
+        if: >-
+          github.event_name == 'schedule' ||
+          github.event_name == 'workflow_dispatch' && (github.event.inputs.direction == 'both' || github.event.inputs.direction == 'upstream-to-downstream')
+        uses: actions/github-script@v7
+        env:
+          ORG_TOKEN: ${{ secrets.SYNC_PAT_ORG }}
+          DRY_RUN: ${{ github.event.inputs.dry_run || 'false' }}
+        with:
+          github-token: ${{ secrets.GITHUB_TOKEN }}
+          script: |
+            const upstreamOwner = process.env.UPSTREAM_OWNER;
+            const upstreamRepo = process.env.UPSTREAM_REPO;
+            const downstreamOwner = process.env.DOWNSTREAM_OWNER;
+            const downstreamRepo = process.env.DOWNSTREAM_REPO;
+            const syncLabel = process.env.SYNC_LABEL;
+            const upstreamMarker = process.env.UPSTREAM_MARKER;
+            const dryRun = process.env.DRY_RUN === 'true';
+
+            const orgOctokit = github.getOctokit(process.env.ORG_TOKEN);
+
+            console.log(`🔄 Syncing issues from ${upstreamOwner}/${upstreamRepo} → ${downstreamOwner}/${downstreamRepo}`);
+            if (dryRun) console.log('🧪 DRY RUN MODE - no changes will be made');
+
+            // Fetch all open issues from upstream
+            const upstreamIssues = await orgOctokit.paginate(orgOctokit.rest.issues.listForRepo, {
+              owner: upstreamOwner,
+              repo: upstreamRepo,
+              state: 'all',
+              per_page: 100,
+              sort: 'updated',
+              direction: 'desc'
+            });
+
+            // Filter out pull requests (they have a pull_request key)
+            const issues = upstreamIssues.filter(i => !i.pull_request).slice(0, 100); // Limit to 100 most recently updated
+            console.log(`📋 Found ${issues.length} issues in upstream repo`);
+
+            // Fetch existing synced issues in downstream
+            const downstreamIssues = await github.paginate(github.rest.issues.listForRepo, {
+              owner: downstreamOwner,
+              repo: downstreamRepo,
+              state: 'all',
+              labels: syncLabel,
+              per_page: 100
+            });
+
+            // Build a map of upstream issue number → downstream issue
+            const syncedMap = new Map();
+            for (const di of downstreamIssues) {
+              const match = di.body?.match(new RegExp(`${upstreamMarker.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')}\\s*(\\d+)\\s*-->`));
+              if (match) {
+                syncedMap.set(parseInt(match[1], 10), di);
+              }
+            }
+            console.log(`📍 Found ${syncedMap.size} already-synced issues in downstream`);
+
+            let created = 0, updated = 0, skipped = 0;
+
+            for (const upIssue of issues) {
+              const upNum = upIssue.number;
+              const existingDown = syncedMap.get(upNum);
+
+              // Build the synced issue body
+              const upstreamLink = `https://github.com/${upstreamOwner}/${upstreamRepo}/issues/${upNum}`;
+              const syncHeader = `> 🔗 **Synced from upstream:** [${upstreamOwner}/${upstreamRepo}#${upNum}](${upstreamLink})\n>\n> _This issue is mirrored from the upstream repository. Status changes here will be synced back._\n\n${upstreamMarker} ${upNum} -->\n\n---\n\n`;
+              const syncedBody = syncHeader + (upIssue.body || '_No description provided._');
+
+              // Map upstream labels (exclude some internal ones)
+              const upLabels = upIssue.labels
+                .map(l => typeof l === 'string' ? l : l.name)
+                .filter(l => !['good first issue', 'help wanted'].includes(l));
+              const labels = [syncLabel, ...upLabels];
+
+              if (existingDown) {
+                // Check if update needed
+                const needsUpdate =
+                  existingDown.state !== upIssue.state ||
+                  existingDown.title !== upIssue.title;
+
+                if (needsUpdate) {
+                  console.log(`🔄 Updating downstream #${existingDown.number} from upstream #${upNum}`);
+                  if (!dryRun) {
+                    await github.rest.issues.update({
+                      owner: downstreamOwner,
+                      repo: downstreamRepo,
+                      issue_number: existingDown.number,
+                      title: upIssue.title,
+                      state: upIssue.state
+                    });
+                  }
+                  updated++;
+                } else {
+                  skipped++;
+                }
+              } else {
+                // Create new synced issue
+                console.log(`➕ Creating downstream issue for upstream #${upNum}: "${upIssue.title}"`);
+                if (!dryRun) {
+                  try {
+                    await github.rest.issues.create({
+                      owner: downstreamOwner,
+                      repo: downstreamRepo,
+                      title: upIssue.title,
+                      body: syncedBody,
+                      labels: labels
+                    });
+                    created++;
+                  } catch (err) {
+                    // Label might not exist, create without extra labels
+                    console.log(`⚠️ Failed with labels, retrying with sync label only: ${err.message}`);
+                    await github.rest.issues.create({
+                      owner: downstreamOwner,
+                      repo: downstreamRepo,
+                      title: upIssue.title,
+                      body: syncedBody,
+                      labels: [syncLabel]
+                    });
+                    created++;
+                  }
+                } else {
+                  created++;
+                }
+              }
+            }
+
+            console.log(`\n✅ Upstream → Downstream sync complete:`);
+            console.log(`   Created: ${created}, Updated: ${updated}, Skipped: ${skipped}`);
+
+      - name: Sync downstream status changes to upstream
+        if: >-
+          (github.event_name == 'issues' && contains(fromJSON('["closed", "reopened"]'), github.event.action)) ||
+          (github.event_name == 'workflow_dispatch' && (github.event.inputs.direction == 'both' || github.event.inputs.direction == 'downstream-to-upstream'))
+        uses: actions/github-script@v7
+        env:
+          ORG_TOKEN: ${{ secrets.SYNC_PAT_ORG }}
+          DRY_RUN: ${{ github.event.inputs.dry_run || 'false' }}
+        with:
+          github-token: ${{ secrets.GITHUB_TOKEN }}
+          script: |
+            const upstreamOwner = process.env.UPSTREAM_OWNER;
+            const upstreamRepo = process.env.UPSTREAM_REPO;
+            const downstreamOwner = process.env.DOWNSTREAM_OWNER;
+            const downstreamRepo = process.env.DOWNSTREAM_REPO;
+            const syncLabel = process.env.SYNC_LABEL;
+            const upstreamMarker = process.env.UPSTREAM_MARKER;
+            const downstreamMarker = process.env.DOWNSTREAM_MARKER;
+            const dryRun = process.env.DRY_RUN === 'true';
+
+            const orgOctokit = github.getOctokit(process.env.ORG_TOKEN);
+
+            // If triggered by an issue event, only process that issue
+            if (context.eventName === 'issues') {
+              const issue = context.payload.issue;
+              const action = context.payload.action;
+
+              // Check if this is a synced issue
+              if (!issue.labels?.some(l => (typeof l === 'string' ? l : l.name) === syncLabel)) {
+                console.log('📌 Issue does not have sync label, skipping');
+                return;
+              }
+
+              // Extract upstream issue number from body
+              const match = issue.body?.match(new RegExp(`${upstreamMarker.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')}\\s*(\\d+)\\s*-->`));
+              if (!match) {
+                console.log('📌 Could not find upstream issue marker in body, skipping');
+                return;
+              }
+
+              const upstreamNum = parseInt(match[1], 10);
+              const newState = action === 'closed' ? 'closed' : 'open';
+
+              console.log(`🔄 Syncing status change: downstream #${issue.number} (${action}) → upstream #${upstreamNum}`);
+
+              if (!dryRun) {
+                // Update upstream issue state
+                await orgOctokit.rest.issues.update({
+                  owner: upstreamOwner,
+                  repo: upstreamRepo,
+                  issue_number: upstreamNum,
+                  state: newState
+                });
+
+                // Add a comment to upstream issue
+                const downstreamLink = `https://github.com/${downstreamOwner}/${downstreamRepo}/issues/${issue.number}`;
+                await orgOctokit.rest.issues.createComment({
+                  owner: upstreamOwner,
+                  repo: upstreamRepo,
+                  issue_number: upstreamNum,
+                  body: `🔄 Issue ${action} via downstream mirror: [${downstreamOwner}/${downstreamRepo}#${issue.number}](${downstreamLink})`
+                });
+              }
+
+              console.log(`✅ Upstream issue #${upstreamNum} state updated to: ${newState}`);
+              return;
+            }
+
+            // Manual/scheduled downstream-to-upstream sync: check for status mismatches
+            console.log(`🔄 Checking for status mismatches (downstream → upstream)`);
+            if (dryRun) console.log('🧪 DRY RUN MODE - no changes will be made');
+
+            const downstreamIssues = await github.paginate(github.rest.issues.listForRepo, {
+              owner: downstreamOwner,
+              repo: downstreamRepo,
+              state: 'all',
+              labels: syncLabel,
+              per_page: 100
+            });
+
+            let synced = 0;
+            for (const di of downstreamIssues) {
+              const match = di.body?.match(new RegExp(`${upstreamMarker.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')}\\s*(\\d+)\\s*-->`));
+              if (!match) continue;
+
+              const upNum = parseInt(match[1], 10);
+
+              try {
+                const { data: upIssue } = await orgOctokit.rest.issues.get({
+                  owner: upstreamOwner,
+                  repo: upstreamRepo,
+                  issue_number: upNum
+                });
+
+                if (di.state !== upIssue.state) {
+                  console.log(`🔄 Status mismatch: downstream #${di.number} is ${di.state}, upstream #${upNum} is ${upIssue.state}`);
+                  // Downstream state takes precedence in this direction
+                  if (!dryRun) {
+                    await orgOctokit.rest.issues.update({
+                      owner: upstreamOwner,
+                      repo: upstreamRepo,
+                      issue_number: upNum,
+                      state: di.state
+                    });
+                  }
+                  synced++;
+                }
+              } catch (err) {
+                console.log(`⚠️ Could not fetch upstream #${upNum}: ${err.message}`);
+              }
+            }
+
+            console.log(`✅ Downstream → Upstream sync complete: ${synced} issues updated`);
+
+      - name: Summary
+        if: always()
+        run: |
+          echo "Issue sync completed at $(date -u +"%Y-%m-%dT%H:%M:%SZ")"
+          echo "Event: ${{ github.event_name }}"
+          echo "Direction: ${{ github.event.inputs.direction || 'auto' }}"

@@ -56,6 +56,8 @@ jobs:
         with:
           github-token: ${{ secrets.GITHUB_TOKEN }}
           script: |
+            const { getOctokit } = require('@actions/github');
+
             const upstreamOwner = process.env.UPSTREAM_OWNER;
             const upstreamRepo = process.env.UPSTREAM_REPO;
             const downstreamOwner = process.env.DOWNSTREAM_OWNER;
@@ -64,7 +66,7 @@ jobs:
             const upstreamMarker = process.env.UPSTREAM_MARKER;
             const dryRun = process.env.DRY_RUN === 'true';
 
-            const orgOctokit = github.getOctokit(process.env.ORG_TOKEN);
+            const orgOctokit = getOctokit(process.env.ORG_TOKEN);
 
             console.log(`🔄 Syncing issues from ${upstreamOwner}/${upstreamRepo} → ${downstreamOwner}/${downstreamRepo}`);
             if (dryRun) console.log('🧪 DRY RUN MODE - no changes will be made');
@@ -199,6 +201,8 @@ jobs:
         with:
           github-token: ${{ secrets.GITHUB_TOKEN }}
           script: |
+            const { getOctokit } = require('@actions/github');
+
             const upstreamOwner = process.env.UPSTREAM_OWNER;
             const upstreamRepo = process.env.UPSTREAM_REPO;
             const downstreamOwner = process.env.DOWNSTREAM_OWNER;
@@ -207,7 +211,7 @@ jobs:
             const upstreamMarker = process.env.UPSTREAM_MARKER;
             const dryRun = process.env.DRY_RUN === 'true';
 
-            const orgOctokit = github.getOctokit(process.env.ORG_TOKEN);
+            const orgOctokit = getOctokit(process.env.ORG_TOKEN);
 
             // If triggered by an issue event, only process that issue
             if (context.eventName === 'issues') {

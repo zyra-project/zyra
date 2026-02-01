@@ -83,14 +83,14 @@ jobs:
             const issues = upstreamIssues.filter(i => !i.pull_request);
             console.log(`📋 Found ${issues.length} issues in upstream repo`);
 
-            // Fetch existing synced issues in downstream
-            const downstreamIssues = await github.paginate(github.rest.issues.listForRepo, {
+            // Fetch existing synced issues in downstream (filter out PRs)
+            const downstreamIssues = (await github.paginate(github.rest.issues.listForRepo, {
               owner: downstreamOwner,
               repo: downstreamRepo,
               state: 'all',
               labels: syncLabel,
               per_page: 100
-            });
+            })).filter(i => !i.pull_request);
 
             // Build a map of upstream issue number → downstream issue
             const syncedMap = new Map();
@@ -158,14 +158,23 @@ jobs:
                     // Only retry without labels on 422 validation errors (label doesn't exist)
                     if (err.status === 422) {
                       console.log(`⚠️ Label validation failed, retrying with sync label only: ${err.message}`);
-                      await github.rest.issues.create({
-                        owner: downstreamOwner,
-                        repo: downstreamRepo,
-                        title: upIssue.title,
-                        body: syncedBody,
-                        labels: [syncLabel]
-                      });
-                      created++;
+                      try {
+                        await github.rest.issues.create({
+                          owner: downstreamOwner,
+                          repo: downstreamRepo,
+                          title: upIssue.title,
+                          body: syncedBody,
+                          labels: [syncLabel]
+                        });
+                        created++;
+                      } catch (retryErr) {
+                        if (retryErr.status === 422) {
+                          console.log(`❌ The '${syncLabel}' label does not exist. Please create it first:`);
+                          console.log(`   gh label create "${syncLabel}" --repo ${downstreamOwner}/${downstreamRepo} --description "Issue mirrored from upstream" --color "1d76db"`);
+                          throw new Error(`Missing required label '${syncLabel}'. Create it manually and re-run the workflow.`);
+                        }
+                        throw retryErr;
+                      }
                     } else {
                       throw err;
                     }
@@ -269,13 +278,13 @@ jobs:
             console.log(`🔄 Checking for status mismatches (downstream → upstream)`);
             if (dryRun) console.log('🧪 DRY RUN MODE - no changes will be made');
 
-            const downstreamIssues = await github.paginate(github.rest.issues.listForRepo, {
+            const downstreamIssues = (await github.paginate(github.rest.issues.listForRepo, {
               owner: downstreamOwner,
               repo: downstreamRepo,
               state: 'all',
               labels: syncLabel,
               per_page: 100
-            });
+            })).filter(i => !i.pull_request);
 
             let synced = 0;
             for (const di of downstreamIssues) {

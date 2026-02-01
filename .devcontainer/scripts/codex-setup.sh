@@ -12,7 +12,7 @@ git config filter.lfs.required true
 
 # Ensure remotes (reset origin if already exists)
 git remote remove origin 2>/dev/null || true
-git remote add origin https://github.com/HacksHaven/zyra.git
+git remote add origin https://github.com/zyra-project/zyra.git
 
 git remote remove upstream 2>/dev/null || true
 git remote add upstream https://github.com/NOAA-GSL/zyra.git

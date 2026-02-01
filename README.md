@@ -42,6 +42,8 @@ However, **issues are synced bidirectionally** — you can view and close upstre
 - Mirrored issues are labeled `upstream-sync` and link back to the original.
 - **Bidirectional status sync**: closing or reopening a synced issue here
   updates the upstream issue (and vice versa on the next sync).
+- **Note**: Only initial issue body and title/status changes sync. Comments and
+  body edits made after creation remain local to each repository.
 - Allows contributors to work on upstream issues from this repo.
 - Requires the `SYNC_PAT_ORG` secret with **repo scope** for upstream access.
 

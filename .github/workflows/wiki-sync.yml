@@ -1,4 +1,4 @@
-name: Sync Wiki from NOAA-GSL/zyra.wiki → HacksHaven/zyra.wiki
+name: Sync Wiki (NOAA-GSL/zyra.wiki → zyra-project/zyra.wiki)
 
 on:
   schedule:
@@ -24,7 +24,7 @@ jobs:
       - name: Clone upstream wiki (bare)
         run: git clone --bare https://github.com/NOAA-GSL/zyra.wiki.git upstream.wiki.git
 
-      - name: Push to HacksHaven wiki
+      - name: Push to zyra-project wiki
         env:
           GITHUB_TOKEN: ${{ github.token }}
         run: |
@@ -33,8 +33,8 @@ jobs:
           git fetch -p
           # add mirror remote (idempotent, but fail if URL differs)
           if git remote get-url mirror >/dev/null 2>&1; then
-            git remote set-url mirror "https://x-access-token:${GITHUB_TOKEN}@github.com/HacksHaven/zyra.wiki.git"
+            git remote set-url mirror "https://x-access-token:${GITHUB_TOKEN}@github.com/zyra-project/zyra.wiki.git"
           else
-            git remote add mirror "https://x-access-token:${GITHUB_TOKEN}@github.com/HacksHaven/zyra.wiki.git"
+            git remote add mirror "https://x-access-token:${GITHUB_TOKEN}@github.com/zyra-project/zyra.wiki.git"
           fi
           git push mirror --mirror

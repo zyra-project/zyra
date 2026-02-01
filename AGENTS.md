@@ -10,21 +10,23 @@
 
 ## TL;DR
 
-- ✅ **Create new branches here** (`zyra-project/zyra`) under `codex/*` or `feat/*`.  
-- ✅ Open PRs **against `mirror/staging`** in this repo.  
-- 🤖 The relay workflow will **rebase and open/update a PR upstream** in `NOAA-GSL/zyra:staging`.  
-- 🚫 **Never** commit to `mirror/*` — they are overwritten by automation.  
-- ✅ `main` in this repo is for docs/workflows, not code.  
+- ✅ **Create new branches here** (`zyra-project/zyra`) under `codex/*` or `feat/*`.
+- ✅ Open PRs **against `mirror/staging`** in this repo.
+- 🤖 The relay workflow will **rebase and open/update a PR upstream** in `NOAA-GSL/zyra:staging`.
+- 🚫 **Never** commit to `mirror/*` — they are overwritten by automation.
+- ✅ `main` in this repo is for docs/workflows, not code.
+- 🔗 **Upstream issues are synced here** — look for the `upstream-sync` label.  
 
 ---
 
 ## Repositories & Roles
 
-- **Upstream (canonical):** `NOAA-GSL/zyra`  
-  - All *final* merges happen here.  
-  - Issues, releases, tags, and CODEOWNERS reviews live here.  
+- **Upstream (canonical):** `NOAA-GSL/zyra`
+  - All *final* merges happen here.
+  - Releases, tags, and CODEOWNERS reviews live here.
+  - Issues are the source of truth but are **synced to downstream**.  
 
-- **Downstream (this repo — HacksHaven/zyra):**  
+- **Downstream (this repo — zyra-project/zyra):**  
   - `mirror/main`, `mirror/staging`: read-only, force-pushed from upstream.  
   - `codex/*`: for local AI/automation or contributor branches.  
   - `main`: houses workflows/docs; protected.  
@@ -44,7 +46,7 @@
   - `main` → local workflows/docs, not mirrored.
 
 ### Short-lived branches
-- **Create in downstream (`HacksHaven/zyra`)**, not upstream.  
+- **Create in downstream (`zyra-project/zyra`)**, not upstream.  
 - Prefixes:
 ```
 codex/<slug>
@@ -82,7 +84,7 @@ Examples:
 
 ```bash
 # 1) Clone downstream
-git clone https://github.com/HacksHaven/zyra.git
+git clone https://github.com/zyra-project/zyra.git
 cd zyra
 
 # 2) Base from mirror/staging
@@ -153,9 +155,32 @@ Types: `feat`, `fix`, `docs`, `chore`, `refactor`, `perf`, `test`, `build`, `ci`
 
 ## Interacting with Mirror Branches
 
-- **Never** push to `mirror/*`.  
-- They are force-updated from upstream.  
-- To work, branch off `mirror/staging`, never modify it directly.  
+- **Never** push to `mirror/*`.
+- They are force-updated from upstream.
+- To work, branch off `mirror/staging`, never modify it directly.
+
+---
+
+## Working with Synced Issues
+
+Upstream issues from `NOAA-GSL/zyra` are automatically mirrored here.
+
+**How to identify synced issues:**
+- They have the `upstream-sync` label.
+- The issue body contains a link to the original upstream issue.
+
+**What you can do:**
+- **View** upstream issues without leaving this repo.
+- **Close/reopen** synced issues — the status change syncs back to upstream.
+- **Reference** them in commits and PRs (e.g., `Fixes #123`).
+
+**What you should NOT do:**
+- Remove the `upstream-sync` label (breaks tracking).
+- Edit the issue body's upstream link marker.
+
+**Creating new issues:**
+- New issues should be filed upstream at [NOAA-GSL/zyra](https://github.com/NOAA-GSL/zyra/issues).
+- They will be mirrored here on the next sync (every 30 min).
 
 ---
 
@@ -170,8 +195,14 @@ A: Here in `zyra-project/zyra`, base = `mirror/staging`. The relay bot will crea
 **Q: Should I open PRs directly in NOAA-GSL/zyra?**  
 A: Only maintainers do that. Normal flow is: downstream PR → relay → upstream PR.  
 
-**Q: What if I need a downstream-only hotfix?**  
-A: Use a temporary non-mirror branch (`hotfix/<slug>`). Coordinate with maintainers; these should be short-lived.  
+**Q: What if I need a downstream-only hotfix?**
+A: Use a temporary non-mirror branch (`hotfix/<slug>`). Coordinate with maintainers; these should be short-lived.
+
+**Q: Where should I file new issues?**
+A: File new issues upstream at [NOAA-GSL/zyra](https://github.com/NOAA-GSL/zyra/issues). They will sync here automatically.
+
+**Q: Can I close an upstream issue from here?**
+A: Yes! Close the synced issue here, and the status will sync back to upstream.
 
 ---
 

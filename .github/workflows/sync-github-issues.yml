@@ -1,5 +1,10 @@
 name: Sync GitHub Issues (NOAA-GSL ↔ zyra-project)
 
+# Syncs issues between upstream (NOAA-GSL/zyra) and downstream (zyra-project/zyra).
+# By default, only syncs upstream→downstream (one-way mirror).
+# Bidirectional sync (downstream→upstream) requires SYNC_PAT_ORG to have write
+# access to the upstream repository's issues.
+
 on:
   schedule:
     - cron: "*/30 * * * *"     # every 30 minutes
@@ -8,13 +13,13 @@ on:
   workflow_dispatch:
     inputs:
       direction:
-        description: "Sync direction"
+        description: "Sync direction (bidirectional requires upstream write access)"
         required: false
-        default: "both"
+        default: "upstream-to-downstream"
         type: choice
         options:
-          - both
           - upstream-to-downstream
+          - both
           - downstream-to-upstream
       dry_run:
         description: "Dry run (no changes made)"
@@ -327,18 +332,25 @@ jobs:
 
               const upNum = parseInt(match[1], 10);
 
+              let upIssue;
               try {
-                const { data: upIssue } = await github.request('GET /repos/{owner}/{repo}/issues/{issue_number}', {
+                const { data } = await github.request('GET /repos/{owner}/{repo}/issues/{issue_number}', {
                   owner: upstreamOwner,
                   repo: upstreamRepo,
                   issue_number: upNum,
                   headers: upstreamAuth
                 });
+                upIssue = data;
+              } catch (err) {
+                console.log(`⚠️ Could not fetch upstream #${upNum}: ${err.message}`);
+                continue;
+              }
 
-                if (di.state !== upIssue.state) {
-                  console.log(`🔄 Status mismatch: downstream #${di.number} is ${di.state}, upstream #${upNum} is ${upIssue.state}`);
-                  // Downstream state takes precedence in this direction
-                  if (!dryRun) {
+              if (di.state !== upIssue.state) {
+                console.log(`🔄 Status mismatch: downstream #${di.number} is ${di.state}, upstream #${upNum} is ${upIssue.state}`);
+                // Downstream state takes precedence in this direction
+                if (!dryRun) {
+                  try {
                     await github.request('PATCH /repos/{owner}/{repo}/issues/{issue_number}', {
                       owner: upstreamOwner,
                       repo: upstreamRepo,
@@ -348,11 +360,14 @@ jobs:
                     });
                     // Delay to avoid secondary rate limits
                     await sleep(1000);
+                    synced++;
+                  } catch (err) {
+                    console.log(`⚠️ Could not update upstream #${upNum}: ${err.message}`);
+                    console.log(`   (This usually means SYNC_PAT_ORG lacks write access to ${upstreamOwner}/${upstreamRepo})`);
                   }
+                } else {
                   synced++;
                 }
-              } catch (err) {
-                console.log(`⚠️ Could not fetch upstream #${upNum}: ${err.message}`);
               }
             }
 

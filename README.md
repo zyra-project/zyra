@@ -44,6 +44,8 @@ However, **issues are synced bidirectionally** — you can view and close upstre
   updates the upstream issue (and vice versa on the next sync).
 - **Note**: Only initial issue body and title/status changes sync. Comments and
   body edits made after creation remain local to each repository.
+- **Limitation**: Only the 100 most recently updated upstream issues are
+  processed per sync run. Older issues may not appear here.
 - Allows contributors to work on upstream issues from this repo.
 - Requires the `SYNC_PAT_ORG` secret with **repo scope** for upstream access.
 

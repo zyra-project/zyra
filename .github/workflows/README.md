@@ -89,25 +89,25 @@ This will create/update `mirror/main` and mirror all upstream tags.
 
 ---
 
-# Sync GitHub Issues (NOAA-GSL ↔ zyra-project)
+## Sync GitHub Issues (NOAA-GSL ↔ zyra-project)
 
 This workflow keeps issues synchronized between the upstream [`NOAA-GSL/zyra`](https://github.com/NOAA-GSL/zyra) repository and this downstream repo.
 
-## How it works
+### How it works
 
-### Upstream → Downstream (mirroring)
+#### Upstream → Downstream (mirroring)
 - Runs every 30 minutes (`cron`) or can be triggered manually.
 - Fetches issues from `NOAA-GSL/zyra` and creates mirrored copies here.
 - Mirrored issues are labeled with `upstream-sync` for identification.
 - Issue body contains a hidden marker linking to the upstream issue number.
 - Syncs issue title and open/closed state.
 
-### Downstream → Upstream (status relay)
+#### Downstream → Upstream (status relay)
 - When a synced issue is **closed** or **reopened** in this repo, the change is relayed to upstream.
 - A comment is added to the upstream issue noting the status change source.
 - This allows work to happen in either repository while keeping status in sync.
 
-## Labels
+### Labels
 
 | Label | Purpose |
 |-------|---------|
@@ -119,7 +119,7 @@ gh label create "upstream-sync" --repo zyra-project/zyra \
   --description "Issue mirrored from NOAA-GSL/zyra" --color "1d76db"
 ```
 
-## Issue Body Format
+### Issue Body Format
 
 Synced issues contain a header with a link to the upstream issue:
 
@@ -135,20 +135,20 @@ Synced issues contain a header with a link to the upstream issue:
 [Original issue body here]
 ```
 
-## Inputs (Manual Trigger)
+### Inputs (Manual Trigger)
 
 | Input | Default | Description |
 |-------|---------|-------------|
 | `direction` | `both` | Sync direction: `both`, `upstream-to-downstream`, or `downstream-to-upstream` |
 | `dry_run` | `false` | If `true`, logs what would happen without making changes |
 
-## Required Secrets
+### Required Secrets
 
 | Secret | Purpose |
 |--------|---------|
 | `SYNC_PAT_ORG` | Personal access token with `repo` scope for `NOAA-GSL/zyra`. Required for reading upstream issues and relaying status changes. |
 
-## Workflow Triggers
+### Workflow Triggers
 
 | Trigger | Action |
 |---------|--------|
@@ -156,7 +156,7 @@ Synced issues contain a header with a link to the upstream issue:
 | Issue closed/reopened | Relays status change downstream → upstream |
 | Manual dispatch | Runs sync in specified direction |
 
-## Important Notes
+### Important Notes
 
 - **Only issues are synced**, not pull requests.
 - **Comments are not synced** to avoid noise; only the original issue body is mirrored.
@@ -164,7 +164,7 @@ Synced issues contain a header with a link to the upstream issue:
 - **The first 100 most recently updated issues** are processed per run to stay within API limits.
 - **Upstream labels are copied** when creating new issues (except `good first issue` and `help wanted`).
 
-## TL;DR
+### TL;DR
 
 - ✅ Keeps upstream issues visible in this repo
 - ✅ Closing an issue here closes it upstream (and vice versa)

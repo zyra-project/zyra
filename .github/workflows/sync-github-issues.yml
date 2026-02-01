@@ -220,6 +220,12 @@ jobs:
                 return;
               }
 
+              // Security: verify issue was created by the sync bot (prevents forged markers)
+              if (issue.user?.login !== 'github-actions[bot]') {
+                console.log(`📌 Issue author '${issue.user?.login}' is not github-actions[bot], skipping for security`);
+                return;
+              }
+
               // Extract upstream issue number from body
               const match = issue.body?.match(new RegExp(`${upstreamMarker.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')}\\s*(\\d+)\\s*-->`));
               if (!match) {
@@ -243,6 +249,12 @@ jobs:
                 repo: upstreamRepo,
                 issue_number: upstreamNum
               });
+
+              // Security: verify upstream reference is an issue, not a PR
+              if (upstreamIssue.pull_request) {
+                console.log(`📌 Upstream #${upstreamNum} is a pull request, skipping`);
+                return;
+              }
 
               if (upstreamIssue.state === newState) {
                 console.log(`📌 Upstream #${upstreamNum} already ${newState}, skipping`);

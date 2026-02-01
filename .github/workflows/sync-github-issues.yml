@@ -4,7 +4,7 @@ on:
   schedule:
     - cron: "*/30 * * * *"     # every 30 minutes
   issues:
-    types: [opened, closed, reopened, edited, labeled, unlabeled]
+    types: [closed, reopened]
   workflow_dispatch:
     inputs:
       direction:
@@ -37,7 +37,6 @@ env:
   DOWNSTREAM_REPO: zyra
   SYNC_LABEL: "upstream-sync"
   UPSTREAM_MARKER: "<!-- upstream-issue:"
-  DOWNSTREAM_MARKER: "<!-- downstream-issue:"
 
 jobs:
   sync-issues:
@@ -70,8 +69,8 @@ jobs:
             console.log(`🔄 Syncing issues from ${upstreamOwner}/${upstreamRepo} → ${downstreamOwner}/${downstreamRepo}`);
             if (dryRun) console.log('🧪 DRY RUN MODE - no changes will be made');
 
-            // Fetch all open issues from upstream
-            const upstreamIssues = await orgOctokit.paginate(orgOctokit.rest.issues.listForRepo, {
+            // Fetch the 100 most recently updated issues from upstream (single page to avoid rate limits)
+            const { data: upstreamIssues } = await orgOctokit.rest.issues.listForRepo({
               owner: upstreamOwner,
               repo: upstreamRepo,
               state: 'all',
@@ -81,7 +80,7 @@ jobs:
             });
 
             // Filter out pull requests (they have a pull_request key)
-            const issues = upstreamIssues.filter(i => !i.pull_request).slice(0, 100); // Limit to 100 most recently updated
+            const issues = upstreamIssues.filter(i => !i.pull_request);
             console.log(`📋 Found ${issues.length} issues in upstream repo`);
 
             // Fetch existing synced issues in downstream
@@ -155,16 +154,20 @@ jobs:
                     });
                     created++;
                   } catch (err) {
-                    // Label might not exist, create without extra labels
-                    console.log(`⚠️ Failed with labels, retrying with sync label only: ${err.message}`);
-                    await github.rest.issues.create({
-                      owner: downstreamOwner,
-                      repo: downstreamRepo,
-                      title: upIssue.title,
-                      body: syncedBody,
-                      labels: [syncLabel]
-                    });
-                    created++;
+                    // Only retry without labels on 422 validation errors (label doesn't exist)
+                    if (err.status === 422) {
+                      console.log(`⚠️ Label validation failed, retrying with sync label only: ${err.message}`);
+                      await github.rest.issues.create({
+                        owner: downstreamOwner,
+                        repo: downstreamRepo,
+                        title: upIssue.title,
+                        body: syncedBody,
+                        labels: [syncLabel]
+                      });
+                      created++;
+                    } else {
+                      throw err;
+                    }
                   }
                 } else {
                   created++;
@@ -192,7 +195,6 @@ jobs:
             const downstreamRepo = process.env.DOWNSTREAM_REPO;
             const syncLabel = process.env.SYNC_LABEL;
             const upstreamMarker = process.env.UPSTREAM_MARKER;
-            const downstreamMarker = process.env.DOWNSTREAM_MARKER;
             const dryRun = process.env.DRY_RUN === 'true';
 
             const orgOctokit = github.getOctokit(process.env.ORG_TOKEN);

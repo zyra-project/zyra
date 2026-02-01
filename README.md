@@ -43,6 +43,7 @@ However, **issues are synced bidirectionally** — you can view and close upstre
 - **Bidirectional status sync**: closing or reopening a synced issue here
   updates the upstream issue (and vice versa on the next sync).
 - Allows contributors to work on upstream issues from this repo.
+- Requires the `SYNC_PAT_ORG` secret with **repo scope** for upstream access.
 
 ---
 

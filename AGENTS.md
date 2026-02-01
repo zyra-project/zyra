@@ -26,7 +26,7 @@
   - Releases, tags, and CODEOWNERS reviews live here.
   - Issues are the source of truth but are **synced to downstream**.  
 
-- **Downstream (this repo — HacksHaven/zyra):**  
+- **Downstream (this repo — zyra-project/zyra):**  
   - `mirror/main`, `mirror/staging`: read-only, force-pushed from upstream.  
   - `codex/*`: for local AI/automation or contributor branches.  
   - `main`: houses workflows/docs; protected.  
@@ -46,7 +46,7 @@
   - `main` → local workflows/docs, not mirrored.
 
 ### Short-lived branches
-- **Create in downstream (`HacksHaven/zyra`)**, not upstream.  
+- **Create in downstream (`zyra-project/zyra`)**, not upstream.  
 - Prefixes:
 ```
 codex/<slug>
@@ -84,7 +84,7 @@ Examples:
 
 ```bash
 # 1) Clone downstream
-git clone https://github.com/HacksHaven/zyra.git
+git clone https://github.com/zyra-project/zyra.git
 cd zyra
 
 # 2) Base from mirror/staging

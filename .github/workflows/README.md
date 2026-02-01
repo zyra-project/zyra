@@ -113,6 +113,12 @@ This workflow keeps issues synchronized between the upstream [`NOAA-GSL/zyra`](h
 |-------|---------|
 | `upstream-sync` | Identifies issues mirrored from upstream. **Do not remove this label** from synced issues. |
 
+**Setup:** Create the label before the first sync run:
+```bash
+gh label create "upstream-sync" --repo zyra-project/zyra \
+  --description "Issue mirrored from NOAA-GSL/zyra" --color "1d76db"
+```
+
 ## Issue Body Format
 
 Synced issues contain a header with a link to the upstream issue:

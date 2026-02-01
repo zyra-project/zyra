@@ -106,6 +106,7 @@ This workflow keeps issues synchronized between the upstream [`NOAA-GSL/zyra`](h
 - When a synced issue is **closed** or **reopened** in this repo, the change is relayed to upstream.
 - A comment is added to the upstream issue noting the status change source.
 - This allows work to happen in either repository while keeping status in sync.
+- **Requires write access**: The `SYNC_PAT_ORG` token must have write access to upstream issues for this to work.
 
 ### Labels
 
@@ -139,21 +140,21 @@ Synced issues contain a header with a link to the upstream issue:
 
 | Input | Default | Description |
 |-------|---------|-------------|
-| `direction` | `both` | Sync direction: `both`, `upstream-to-downstream`, or `downstream-to-upstream` |
+| `direction` | `upstream-to-downstream` | Sync direction: `upstream-to-downstream` (default, one-way), `both`, or `downstream-to-upstream`. Bidirectional sync requires `SYNC_PAT_ORG` to have write access to upstream. |
 | `dry_run` | `false` | If `true`, logs what would happen without making changes |
 
 ### Required Secrets
 
 | Secret | Purpose |
 |--------|---------|
-| `SYNC_PAT_ORG` | Personal access token with `repo` scope for `NOAA-GSL/zyra`. Required for reading upstream issues and relaying status changes. |
+| `SYNC_PAT_ORG` | Personal access token with `repo` scope for `NOAA-GSL/zyra`. Required for reading upstream issues. For bidirectional sync (relaying status changes), the token must also have write access to upstream issues. |
 
 ### Workflow Triggers
 
 | Trigger | Action |
 |---------|--------|
-| Schedule (every 30 min) | Syncs issues from upstream → downstream |
-| Issue closed/reopened | Relays status change downstream → upstream |
+| Schedule (every 30 min) | Syncs issues from upstream → downstream (one-way) |
+| Issue closed/reopened | Relays status change downstream → upstream (requires write access) |
 | Manual dispatch | Runs sync in specified direction |
 
 ### Important Notes
@@ -166,7 +167,8 @@ Synced issues contain a header with a link to the upstream issue:
 
 ### TL;DR
 
-- ✅ Keeps upstream issues visible in this repo
-- ✅ Closing an issue here closes it upstream (and vice versa)
+- ✅ Keeps upstream issues visible in this repo (one-way mirror by default)
+- ✅ Closing an issue here can close it upstream (if `SYNC_PAT_ORG` has write access)
 - ✅ Clear linking between mirrored issues
-- ✅ Non-destructive: only syncs status, not comments or complex edits 
+- ✅ Non-destructive: only syncs status, not comments or complex edits
+- ℹ️ Bidirectional sync is optional and requires upstream write permissions 

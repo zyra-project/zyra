@@ -47,8 +47,8 @@ jobs:
     steps:
       - name: Sync upstream issues to downstream
         if: >-
-          github.event_name == 'schedule' ||
-          github.event_name == 'workflow_dispatch' && (github.event.inputs.direction == 'both' || github.event.inputs.direction == 'upstream-to-downstream')
+          (github.event_name == 'schedule') ||
+          (github.event_name == 'workflow_dispatch' && (github.event.inputs.direction == 'both' || github.event.inputs.direction == 'upstream-to-downstream'))
         uses: actions/github-script@v7
         env:
           ORG_TOKEN: ${{ secrets.SYNC_PAT_ORG }}
@@ -108,17 +108,6 @@ jobs:
               const upNum = upIssue.number;
               const existingDown = syncedMap.get(upNum);
 
-              // Build the synced issue body
-              const upstreamLink = `https://github.com/${upstreamOwner}/${upstreamRepo}/issues/${upNum}`;
-              const syncHeader = `> 🔗 **Synced from upstream:** [${upstreamOwner}/${upstreamRepo}#${upNum}](${upstreamLink})\n>\n> _This issue is mirrored from the upstream repository. Status changes here will be synced back._\n\n${upstreamMarker} ${upNum} -->\n\n---\n\n`;
-              const syncedBody = syncHeader + (upIssue.body || '_No description provided._');
-
-              // Map upstream labels (exclude some internal ones)
-              const upLabels = upIssue.labels
-                .map(l => typeof l === 'string' ? l : l.name)
-                .filter(l => !['good first issue', 'help wanted'].includes(l));
-              const labels = [syncLabel, ...upLabels];
-
               if (existingDown) {
                 // Check if update needed
                 const needsUpdate =
@@ -143,6 +132,18 @@ jobs:
               } else {
                 // Create new synced issue
                 console.log(`➕ Creating downstream issue for upstream #${upNum}: "${upIssue.title}"`);
+
+                // Build the synced issue body
+                const upstreamLink = `https://github.com/${upstreamOwner}/${upstreamRepo}/issues/${upNum}`;
+                const syncHeader = `> 🔗 **Synced from upstream:** [${upstreamOwner}/${upstreamRepo}#${upNum}](${upstreamLink})\n>\n> _This issue is mirrored from the upstream repository. Status changes here will be synced back._\n\n${upstreamMarker} ${upNum} -->\n\n---\n\n`;
+                const syncedBody = syncHeader + (upIssue.body || '_No description provided._');
+
+                // Map upstream labels (exclude some internal ones)
+                const upLabels = upIssue.labels
+                  .map(l => typeof l === 'string' ? l : l.name)
+                  .filter(l => !['good first issue', 'help wanted'].includes(l));
+                const labels = [syncLabel, ...upLabels];
+
                 if (!dryRun) {
                   try {
                     await github.rest.issues.create({
@@ -219,6 +220,25 @@ jobs:
 
               const upstreamNum = parseInt(match[1], 10);
               const newState = action === 'closed' ? 'closed' : 'open';
+
+              // Skip if triggered by github-actions bot (prevents loop from upstream sync)
+              const actor = context.payload.sender?.login;
+              if (actor === 'github-actions[bot]') {
+                console.log('📌 Action triggered by github-actions[bot], skipping to prevent loop');
+                return;
+              }
+
+              // Fetch upstream issue to check if state already matches
+              const { data: upstreamIssue } = await orgOctokit.rest.issues.get({
+                owner: upstreamOwner,
+                repo: upstreamRepo,
+                issue_number: upstreamNum
+              });
+
+              if (upstreamIssue.state === newState) {
+                console.log(`📌 Upstream #${upstreamNum} already ${newState}, skipping`);
+                return;
+              }
 
               console.log(`🔄 Syncing status change: downstream #${issue.number} (${action}) → upstream #${upstreamNum}`);
 

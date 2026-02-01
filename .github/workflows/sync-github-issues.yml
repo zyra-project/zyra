@@ -42,7 +42,7 @@ jobs:
   sync-issues:
     name: Sync issues between repositories
     runs-on: ubuntu-latest
-    timeout-minutes: 15
+    timeout-minutes: 30
 
     steps:
       - name: Sync upstream issues to downstream
@@ -67,6 +67,9 @@ jobs:
 
             // Helper to make authenticated requests to upstream repo
             const upstreamAuth = { authorization: `token ${orgToken}` };
+
+            // Helper to avoid secondary rate limits (content creation velocity)
+            const sleep = (ms) => new Promise(resolve => setTimeout(resolve, ms));
 
             console.log(`🔄 Syncing issues from ${upstreamOwner}/${upstreamRepo} → ${downstreamOwner}/${downstreamRepo}`);
             if (dryRun) console.log('🧪 DRY RUN MODE - no changes will be made');
@@ -127,6 +130,8 @@ jobs:
                       title: upIssue.title,
                       state: upIssue.state
                     });
+                    // Delay to avoid secondary rate limits
+                    await sleep(1000);
                   }
                   updated++;
                 } else {
@@ -157,6 +162,8 @@ jobs:
                       labels: labels
                     });
                     created++;
+                    // Delay to avoid secondary rate limits
+                    await sleep(2000);
                   } catch (err) {
                     // Only retry without labels on 422 validation errors (label doesn't exist)
                     if (err.status === 422) {
@@ -170,6 +177,8 @@ jobs:
                           labels: [syncLabel]
                         });
                         created++;
+                        // Delay to avoid secondary rate limits
+                        await sleep(2000);
                       } catch (retryErr) {
                         if (retryErr.status === 422) {
                           console.log(`❌ The '${syncLabel}' label does not exist. Please create it first:`);
@@ -213,6 +222,9 @@ jobs:
 
             // Helper to make authenticated requests to upstream repo
             const upstreamAuth = { authorization: `token ${orgToken}` };
+
+            // Helper to avoid secondary rate limits (content creation velocity)
+            const sleep = (ms) => new Promise(resolve => setTimeout(resolve, ms));
 
             // If triggered by an issue event, only process that issue
             if (context.eventName === 'issues') {
@@ -278,6 +290,8 @@ jobs:
                   state: newState,
                   headers: upstreamAuth
                 });
+                // Delay to avoid secondary rate limits
+                await sleep(1000);
 
                 // Add a comment to upstream issue
                 const downstreamLink = `https://github.com/${downstreamOwner}/${downstreamRepo}/issues/${issue.number}`;
@@ -332,6 +346,8 @@ jobs:
                       state: di.state,
                       headers: upstreamAuth
                     });
+                    // Delay to avoid secondary rate limits
+                    await sleep(1000);
                   }
                   synced++;
                 }

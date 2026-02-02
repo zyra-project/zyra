@@ -85,6 +85,9 @@ poetry run zyra --help
 # Pre-commit hooks
 poetry run pre-commit install
 poetry run pre-commit run -a
+
+# Update OpenAPI snapshot (REQUIRED when CLI/API changes affect the manifest)
+./scripts/update_openapi_snapshot.sh
 ```
 
 ## Codebase Architecture
@@ -422,6 +425,7 @@ Before returning code changes, verify:
 
 - [ ] Ran `poetry run ruff format . && poetry run ruff check .` - clean output
 - [ ] Ran targeted tests (`poetry run pytest -q -k <pattern>`) - passing
+- [ ] If CLI/API commands changed, ran `./scripts/update_openapi_snapshot.sh`
 - [ ] Limited scope to requested changes only
 - [ ] Updated documentation if needed
 - [ ] Called out assumptions and external requirements (e.g., FFmpeg)

@@ -273,7 +273,8 @@ jobs:
         run: |
           set -euo pipefail
           RELAY_BRANCH="relay/hh-pr-${{ steps.ctx.outputs.pr_number }}"
-          git push "https://x-access-token:${ORG_TOKEN}@github.com/${{ env.ORG_OWNER }}/${{ env.ORG_REPO }}.git" HEAD:${RELAY_BRANCH} --force-with-lease
+          # Disable credential helper to ensure our PAT is used instead of the runner's token
+          git -c credential.helper= push "https://x-access-token:${ORG_TOKEN}@github.com/${{ env.ORG_OWNER }}/${{ env.ORG_REPO }}.git" HEAD:${RELAY_BRANCH} --force-with-lease
           echo "RELAY_BRANCH=${RELAY_BRANCH}" >> "$GITHUB_ENV"
 
       - name: Create or update PR in org

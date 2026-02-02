@@ -96,6 +96,7 @@ jobs:
           repository: ${{ steps.ctx.outputs.head_repo }}
           ref: ${{ steps.ctx.outputs.head_sha }}
           fetch-depth: 0
+          persist-credentials: false
 
       - name: Configure Git
         run: |

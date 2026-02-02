@@ -118,6 +118,8 @@ jobs:
           set -euo pipefail
           git remote add upstream "https://x-access-token:${ORG_TOKEN}@github.com/${{ env.ORG_OWNER }}/${{ env.ORG_REPO }}.git"
           git fetch upstream "${{ env.RELAY_BASE }}"
+          # Fetch the PR's base branch from origin (the fork) for --onto rebase
+          git fetch origin "${{ steps.ctx.outputs.base_ref }}"
 
       - name: Rebase onto upstream base (auto-resolve infra/docs/LFS)
         id: rebase
@@ -126,7 +128,9 @@ jobs:
           set -euo pipefail
           export GIT_EDITOR=true
 
-          git rebase "upstream/${{ env.RELAY_BASE }}" || true
+          # Use --onto to only rebase PR-specific commits, not the entire fork history.
+          # This replays only commits between origin's base branch and HEAD onto upstream.
+          git rebase --onto "upstream/${{ env.RELAY_BASE }}" "origin/${{ steps.ctx.outputs.base_ref }}" HEAD || true
 
           allowlist=(
             ".devcontainer/"

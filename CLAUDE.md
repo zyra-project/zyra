@@ -67,8 +67,8 @@ NOAA-GSL/zyra (upstream)          zyra-project/zyra (downstream)
 ## Quick Reference Commands
 
 ```bash
-# Install with dev dependencies
-poetry install --with dev
+# Install with dev dependencies AND all extras (required for pre-commit hooks)
+poetry install --with dev --extras "all"
 
 # Format and lint (REQUIRED before commits)
 poetry run ruff format . && poetry run ruff check .
@@ -418,6 +418,17 @@ poetry run ruff format .
 # Fix linting issues (some auto-fixable)
 poetry run ruff check --fix .
 ```
+
+### Manifest Generation Failures
+
+The `zyra-generate-manifest` pre-commit hook requires all optional dependencies to be installed. If the manifest is missing commands (e.g., `narrate.json` deleted), install all extras:
+
+```bash
+poetry install --extras "all"
+poetry run zyra generate-manifest
+```
+
+Without all extras, the generator cannot introspect commands that depend on optional packages (like `pydantic` for narrate schemas).
 
 ## Agent Checklist
 

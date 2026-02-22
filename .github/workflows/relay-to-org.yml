@@ -5,6 +5,7 @@ on:
     types: [opened, reopened, synchronize, edited, closed]
     branches:
       - mirror/staging
+      - mirror/main
   workflow_dispatch:
     inputs:
       pr_number:
@@ -22,7 +23,6 @@ concurrency:
 env:
   ORG_OWNER: NOAA-GSL
   ORG_REPO: zyra
-  RELAY_BASE: staging
 
 jobs:
   relay:
@@ -83,12 +83,19 @@ jobs:
               return;
             }
 
+            // Derive the upstream branch from the mirror/* base ref
+            const relayBase = pr.base.ref.replace(/^mirror\//, '');
+
             core.setOutput('pr_number', String(pr.number));
             core.setOutput('base_ref', pr.base.ref);
+            core.setOutput('relay_base', relayBase);
             core.setOutput('head_ref', pr.head.ref);
             core.setOutput('head_sha', pr.head.sha);
             core.setOutput('head_repo', pr.head.repo.full_name);
             core.setOutput('is_closed', String(pr.state === 'closed'));
+
+      - name: Set RELAY_BASE from PR target
+        run: echo "RELAY_BASE=${{ steps.ctx.outputs.relay_base }}" >> "$GITHUB_ENV"
 
       - name: Checkout PR head
         uses: actions/checkout@v4
@@ -257,7 +264,7 @@ jobs:
               "Auto-resolved infra (devcontainer, Docker, workflows), docs (README/AGENTS/docs/**), and LFS/binaries by preferring upstream.",
               "Conflicts remain in non-allowlisted text files.",
               "",
-              "**Action:** Rebase your branch on `mirror/staging` locally, resolve remaining conflicts, and push again."
+              "**Action:** Rebase your branch on `${{ steps.ctx.outputs.base_ref }}` locally, resolve remaining conflicts, and push again."
             ].join("\n");
             await github.rest.issues.createComment({
               owner: context.repo.owner,

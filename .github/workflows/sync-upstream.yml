@@ -40,6 +40,13 @@ jobs:
       MIRROR_URL: https://github.com/Hackshaven/zyra.git
 
     steps:
+      - name: Generate app token
+        id: app-token
+        uses: actions/create-github-app-token@v1
+        with:
+          app-id: ${{ secrets.APP_ID }}
+          private-key: ${{ secrets.APP_PRIVATE_KEY }}
+
       - name: Configure Git
         run: |
           git config --global user.name "zyra-sync-bot"
@@ -71,7 +78,7 @@ jobs:
 
       - name: Push selected branches (and optional tags) to mirror/*  (with LFS)
         env:
-          GITHUB_TOKEN: ${{ github.token }}   # built-in token for same-repo pushes
+          APP_TOKEN: ${{ steps.app-token.outputs.token }}
         run: |
           set -euo pipefail
 
@@ -85,8 +92,8 @@ jobs:
 
           # git filter-repo drops remotes; recreate them now
           git remote add origin "$UPSTREAM_URL" || git remote set-url origin "$UPSTREAM_URL"
-          git remote add mirror "https://x-access-token:${GITHUB_TOKEN}@${MIRROR_URL#https://}" || \
-            git remote set-url mirror "https://x-access-token:${GITHUB_TOKEN}@${MIRROR_URL#https://}"
+          git remote add mirror "https://x-access-token:${APP_TOKEN}@${MIRROR_URL#https://}" || \
+            git remote set-url mirror "https://x-access-token:${APP_TOKEN}@${MIRROR_URL#https://}"
 
           # Ensure latest & prune deleted refs from upstream
           git fetch --prune origin
@@ -125,4 +132,3 @@ jobs:
       - name: Summary
         if: always()
         run: echo "Mirror (workflows stripped + LFS mirrored) complete at $(date -u +"%Y-%m-%dT%H:%M:%SZ")."
-        

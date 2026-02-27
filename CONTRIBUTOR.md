@@ -49,7 +49,6 @@ This repo uses **read-only mirror branches** synced from upstream, plus short-li
      | `fix/<slug>-<issue#>` | Bug fixes |
      | `docs/<slug>` | Documentation only |
      | `chore/<slug>` | Maintenance, CI, deps |
-     | `codex/<slug>` | AI/automation branches |
 
    - Open a Pull Request targeting **`mirror/staging`** in this repo.
 

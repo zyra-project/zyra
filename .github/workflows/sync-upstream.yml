@@ -37,7 +37,7 @@ jobs:
       FORCE: ${{ github.event.inputs.force || 'true' }}
       UPSTREAM_URL: https://github.com/NOAA-GSL/zyra.git
       # Use canonical (case-stable) URL to avoid redirect noise
-      MIRROR_URL: https://github.com/Hackshaven/zyra.git
+      MIRROR_URL: https://github.com/zyra-project/zyra.git
 
     steps:
       - name: Generate app token

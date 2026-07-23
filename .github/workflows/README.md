@@ -108,16 +108,34 @@ This workflow keeps issues synchronized between the upstream [`NOAA-GSL/zyra`](h
 - This allows work to happen in either repository while keeping status in sync.
 - **Requires write access**: The `SYNC_PAT_ORG` token must have write access to upstream issues for this to work.
 
+#### Downstream → Upstream (new-issue relay)
+- Issues **created in this repo** (e.g. by AI-agent sessions or downstream
+  contributors) do not sync automatically. To relay one upstream, a
+  collaborator applies the **`relay-upstream`** label.
+- The workflow then creates the upstream twin (with a provenance header
+  crediting the downstream author), stamps the downstream issue with the
+  sync marker + `upstream-sync` label, and the status relay above covers
+  the pair from then on.
+- The label is the security gate: only collaborators can apply labels, so
+  drive-by issues can't forge sync markers into upstream writes.
+- A manual sweep exists for backfill: run the workflow with direction
+  `relay-new` to relay every open `relay-upstream`-labeled issue that has
+  no upstream twin yet.
+- Uses the same `SYNC_PAT_ORG` write access as the status relay.
+
 ### Labels
 
 | Label | Purpose |
 |-------|---------|
 | `upstream-sync` | Identifies issues mirrored from upstream. **Do not remove this label** from synced issues. |
+| `relay-upstream` | Collaborator-applied: relay this downstream-originated issue to upstream. |
 
-**Setup:** Create the label before the first sync run:
+**Setup:** Create the labels before the first sync run:
 ```bash
 gh label create "upstream-sync" --repo zyra-project/zyra \
   --description "Issue mirrored from NOAA-GSL/zyra" --color "1d76db"
+gh label create "relay-upstream" --repo zyra-project/zyra \
+  --description "Relay this downstream issue to NOAA-GSL/zyra" --color "0e8a16"
 ```
 
 ### Issue Body Format

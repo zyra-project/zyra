@@ -4,12 +4,18 @@ name: Sync GitHub Issues (NOAA-GSL ↔ zyra-project)
 # By default, only syncs upstream→downstream (one-way mirror).
 # Bidirectional sync (downstream→upstream) requires SYNC_PAT_ORG to have write
 # access to the upstream repository's issues.
+#
+# Downstream-originated issues can be relayed upstream by applying the
+# "relay-upstream" label (collaborators only — that permission gate is the
+# security model). The relay creates the upstream twin, stamps the downstream
+# issue with the sync marker + label, and the existing status sync covers it
+# from then on.
 
 on:
   schedule:
     - cron: "*/30 * * * *"     # every 30 minutes
   issues:
-    types: [closed, reopened]
+    types: [closed, reopened, labeled]
   workflow_dispatch:
     inputs:
       direction:
@@ -21,6 +27,7 @@ on:
           - upstream-to-downstream
           - both
           - downstream-to-upstream
+          - relay-new
       dry_run:
         description: "Dry run (no changes made)"
         required: false
@@ -41,6 +48,7 @@ env:
   DOWNSTREAM_OWNER: zyra-project
   DOWNSTREAM_REPO: zyra
   SYNC_LABEL: "upstream-sync"
+  RELAY_LABEL: "relay-upstream"
   UPSTREAM_MARKER: "<!-- upstream-issue:"
 
 jobs:
@@ -242,9 +250,14 @@ jobs:
                 return;
               }
 
-              // Security: verify issue was created by the sync bot (prevents forged markers)
-              if (issue.user?.login !== 'github-actions[bot]') {
-                console.log(`📌 Issue author '${issue.user?.login}' is not github-actions[bot], skipping for security`);
+              // Security: verify the marker is trustworthy. Bot-authored issues
+              // wrote their own marker; human-authored issues qualify only when
+              // a collaborator applied the relay label (label permissions are
+              // the gate — non-collaborators can't apply labels, so a forged
+              // marker in a drive-by issue never reaches the PATCH below).
+              const hasRelayLabel = issue.labels?.some(l => (typeof l === 'string' ? l : l.name) === process.env.RELAY_LABEL);
+              if (issue.user?.login !== 'github-actions[bot]' && !hasRelayLabel) {
+                console.log(`📌 Issue author '${issue.user?.login}' is not github-actions[bot] and issue is not relay-labeled, skipping for security`);
                 return;
               }
 
@@ -372,6 +385,101 @@ jobs:
             }
 
             console.log(`✅ Downstream → Upstream sync complete: ${synced} issues updated`);
+
+      - name: Relay labeled downstream issues to upstream
+        if: >-
+          (github.event_name == 'issues' && github.event.action == 'labeled' && github.event.label.name == 'relay-upstream') ||
+          (github.event_name == 'workflow_dispatch' && github.event.inputs.direction == 'relay-new')
+        uses: actions/github-script@v7
+        env:
+          ORG_TOKEN: ${{ secrets.SYNC_PAT_ORG }}
+          DRY_RUN: ${{ github.event.inputs.dry_run || 'false' }}
+        with:
+          github-token: ${{ secrets.GITHUB_TOKEN }}
+          script: |
+            const upstreamOwner = process.env.UPSTREAM_OWNER;
+            const upstreamRepo = process.env.UPSTREAM_REPO;
+            const downstreamOwner = process.env.DOWNSTREAM_OWNER;
+            const downstreamRepo = process.env.DOWNSTREAM_REPO;
+            const syncLabel = process.env.SYNC_LABEL;
+            const relayLabel = process.env.RELAY_LABEL;
+            const upstreamMarker = process.env.UPSTREAM_MARKER;
+            const dryRun = process.env.DRY_RUN === 'true';
+            const orgToken = process.env.ORG_TOKEN;
+
+            const upstreamAuth = { authorization: `token ${orgToken}` };
+            const sleep = (ms) => new Promise(resolve => setTimeout(resolve, ms));
+            const markerRe = new RegExp(`${upstreamMarker.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')}\\s*(\\d+)\\s*-->`);
+
+            // Relay one downstream-originated issue upstream: create the
+            // upstream twin, then stamp the downstream issue with the sync
+            // marker + label so the existing status sync owns it from here.
+            // Idempotent: a marker already in the body means already relayed
+            // (or already an upstream mirror) — skip.
+            async function relay(issue) {
+              if (issue.pull_request) {
+                console.log(`📌 #${issue.number} is a pull request, skipping`);
+                return;
+              }
+              if (issue.body?.match(markerRe)) {
+                console.log(`📌 #${issue.number} already carries an upstream marker, skipping`);
+                return;
+              }
+              if (issue.user?.login === 'github-actions[bot]') {
+                console.log(`📌 #${issue.number} is bot-authored (an upstream mirror), skipping`);
+                return;
+              }
+
+              console.log(`⬆️ Relaying downstream #${issue.number}: "${issue.title}"`);
+              if (dryRun) return;
+
+              const downstreamLink = `https://github.com/${downstreamOwner}/${downstreamRepo}/issues/${issue.number}`;
+              const provenance = `> ⬆️ **Relayed from downstream:** [${downstreamOwner}/${downstreamRepo}#${issue.number}](${downstreamLink}) (author: @${issue.user?.login})\n>\n> _Status changes sync between the two copies._\n\n---\n\n`;
+
+              const { data: upIssue } = await github.request('POST /repos/{owner}/{repo}/issues', {
+                owner: upstreamOwner,
+                repo: upstreamRepo,
+                title: issue.title,
+                body: provenance + (issue.body || '_No description provided._'),
+                headers: upstreamAuth
+              });
+              await sleep(1000);
+
+              // Stamp the downstream issue: marker at the top of the body,
+              // sync label so the status paths pick it up.
+              const upstreamLink = `https://github.com/${upstreamOwner}/${upstreamRepo}/issues/${upIssue.number}`;
+              const stamp = `> 🔗 **Relayed to upstream:** [${upstreamOwner}/${upstreamRepo}#${upIssue.number}](${upstreamLink})\n\n${upstreamMarker} ${upIssue.number} -->\n\n---\n\n`;
+              await github.rest.issues.update({
+                owner: downstreamOwner,
+                repo: downstreamRepo,
+                issue_number: issue.number,
+                body: stamp + (issue.body || ''),
+                labels: [...new Set([syncLabel, relayLabel, ...issue.labels.map(l => typeof l === 'string' ? l : l.name)])]
+              });
+              await sleep(1000);
+              console.log(`✅ Relayed #${issue.number} → upstream #${upIssue.number}`);
+            }
+
+            if (context.eventName === 'issues') {
+              await relay(context.payload.issue);
+              return;
+            }
+
+            // workflow_dispatch relay-new: sweep for labeled-but-unrelayed issues
+            console.log('🔄 Sweeping for relay-labeled issues without an upstream twin');
+            if (dryRun) console.log('🧪 DRY RUN MODE - no changes will be made');
+            const labeled = (await github.paginate(github.rest.issues.listForRepo, {
+              owner: downstreamOwner,
+              repo: downstreamRepo,
+              state: 'open',
+              labels: relayLabel,
+              per_page: 100
+            })).filter(i => !i.pull_request);
+            for (const issue of labeled) {
+              await relay(issue);
+              await sleep(1000);
+            }
+            console.log(`✅ Relay sweep complete over ${labeled.length} labeled issue(s)`);
 
       - name: Summary
         if: always()

@@ -388,7 +388,7 @@ jobs:
 
       - name: Relay labeled downstream issues to upstream
         if: >-
-          (github.event_name == 'issues' && github.event.action == 'labeled' && github.event.label.name == 'relay-upstream') ||
+          (github.event_name == 'issues' && github.event.action == 'labeled' && github.event.label.name == env.RELAY_LABEL) ||
           (github.event_name == 'workflow_dispatch' && github.event.inputs.direction == 'relay-new')
         uses: actions/github-script@v7
         env:
@@ -445,6 +445,21 @@ jobs:
               });
               await sleep(1000);
 
+              // Issues are always created open; if the downstream issue is
+              // already closed (relay label applied post-close), propagate
+              // the state now — no status event will fire to correct it
+              // (PR #237 Copilot review).
+              if (issue.state === 'closed') {
+                await github.request('PATCH /repos/{owner}/{repo}/issues/{issue_number}', {
+                  owner: upstreamOwner,
+                  repo: upstreamRepo,
+                  issue_number: upIssue.number,
+                  state: 'closed',
+                  headers: upstreamAuth
+                });
+                await sleep(1000);
+              }
+
               // Stamp the downstream issue: marker at the top of the body,
               // sync label so the status paths pick it up.
               const upstreamLink = `https://github.com/${upstreamOwner}/${upstreamRepo}/issues/${upIssue.number}`;
@@ -468,10 +483,12 @@ jobs:
             // workflow_dispatch relay-new: sweep for labeled-but-unrelayed issues
             console.log('🔄 Sweeping for relay-labeled issues without an upstream twin');
             if (dryRun) console.log('🧪 DRY RUN MODE - no changes will be made');
+            // state 'all': a closed labeled issue still deserves its twin
+            // (created closed via the state propagation above).
             const labeled = (await github.paginate(github.rest.issues.listForRepo, {
               owner: downstreamOwner,
               repo: downstreamRepo,
-              state: 'open',
+              state: 'all',
               labels: relayLabel,
               per_page: 100
             })).filter(i => !i.pull_request);

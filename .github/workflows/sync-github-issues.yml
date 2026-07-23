@@ -78,8 +78,12 @@ jobs:
             const dryRun = process.env.DRY_RUN === 'true';
             const orgToken = process.env.ORG_TOKEN;
 
-            // Helper to make authenticated requests to upstream repo
-            const upstreamAuth = { authorization: `token ${orgToken}` };
+            // Upstream calls need their own client: Octokit's token-auth hook
+            // overwrites any caller-supplied authorization header after merging
+            // request options, so `headers: {authorization: ...}` on
+            // `github.request` silently authenticates as GITHUB_TOKEN (which
+            // cannot write to the upstream org).
+            const upstream = new (github.constructor)({ auth: orgToken });
 
             // Helper to avoid secondary rate limits (content creation velocity)
             const sleep = (ms) => new Promise(resolve => setTimeout(resolve, ms));
@@ -88,14 +92,13 @@ jobs:
             if (dryRun) console.log('🧪 DRY RUN MODE - no changes will be made');
 
             // Fetch the 100 most recently updated issues from upstream (single page to avoid rate limits)
-            const { data: upstreamIssues } = await github.request('GET /repos/{owner}/{repo}/issues', {
+            const { data: upstreamIssues } = await upstream.request('GET /repos/{owner}/{repo}/issues', {
               owner: upstreamOwner,
               repo: upstreamRepo,
               state: 'all',
               per_page: 100,
               sort: 'updated',
-              direction: 'desc',
-              headers: upstreamAuth
+              direction: 'desc'
             });
 
             // Filter out pull requests (they have a pull_request key)
@@ -233,8 +236,10 @@ jobs:
             const dryRun = process.env.DRY_RUN === 'true';
             const orgToken = process.env.ORG_TOKEN;
 
-            // Helper to make authenticated requests to upstream repo
-            const upstreamAuth = { authorization: `token ${orgToken}` };
+            // Upstream calls need their own client — see the note in the
+            // upstream-to-downstream step (the token-auth hook clobbers
+            // caller-supplied authorization headers).
+            const upstream = new (github.constructor)({ auth: orgToken });
 
             // Helper to avoid secondary rate limits (content creation velocity)
             const sleep = (ms) => new Promise(resolve => setTimeout(resolve, ms));
@@ -279,11 +284,10 @@ jobs:
               }
 
               // Fetch upstream issue to check if state already matches
-              const { data: upstreamIssue } = await github.request('GET /repos/{owner}/{repo}/issues/{issue_number}', {
+              const { data: upstreamIssue } = await upstream.request('GET /repos/{owner}/{repo}/issues/{issue_number}', {
                 owner: upstreamOwner,
                 repo: upstreamRepo,
-                issue_number: upstreamNum,
-                headers: upstreamAuth
+                issue_number: upstreamNum
               });
 
               // Security: verify upstream reference is an issue, not a PR
@@ -301,24 +305,22 @@ jobs:
 
               if (!dryRun) {
                 // Update upstream issue state
-                await github.request('PATCH /repos/{owner}/{repo}/issues/{issue_number}', {
+                await upstream.request('PATCH /repos/{owner}/{repo}/issues/{issue_number}', {
                   owner: upstreamOwner,
                   repo: upstreamRepo,
                   issue_number: upstreamNum,
-                  state: newState,
-                  headers: upstreamAuth
+                  state: newState
                 });
                 // Delay to avoid secondary rate limits
                 await sleep(1000);
 
                 // Add a comment to upstream issue
                 const downstreamLink = `https://github.com/${downstreamOwner}/${downstreamRepo}/issues/${issue.number}`;
-                await github.request('POST /repos/{owner}/{repo}/issues/{issue_number}/comments', {
+                await upstream.request('POST /repos/{owner}/{repo}/issues/{issue_number}/comments', {
                   owner: upstreamOwner,
                   repo: upstreamRepo,
                   issue_number: upstreamNum,
-                  body: `🔄 Issue ${action} via downstream mirror: [${downstreamOwner}/${downstreamRepo}#${issue.number}](${downstreamLink})`,
-                  headers: upstreamAuth
+                  body: `🔄 Issue ${action} via downstream mirror: [${downstreamOwner}/${downstreamRepo}#${issue.number}](${downstreamLink})`
                 });
               }
 
@@ -347,11 +349,10 @@ jobs:
 
               let upIssue;
               try {
-                const { data } = await github.request('GET /repos/{owner}/{repo}/issues/{issue_number}', {
+                const { data } = await upstream.request('GET /repos/{owner}/{repo}/issues/{issue_number}', {
                   owner: upstreamOwner,
                   repo: upstreamRepo,
-                  issue_number: upNum,
-                  headers: upstreamAuth
+                  issue_number: upNum
                 });
                 upIssue = data;
               } catch (err) {
@@ -364,12 +365,11 @@ jobs:
                 // Downstream state takes precedence in this direction
                 if (!dryRun) {
                   try {
-                    await github.request('PATCH /repos/{owner}/{repo}/issues/{issue_number}', {
+                    await upstream.request('PATCH /repos/{owner}/{repo}/issues/{issue_number}', {
                       owner: upstreamOwner,
                       repo: upstreamRepo,
                       issue_number: upNum,
-                      state: di.state,
-                      headers: upstreamAuth
+                      state: di.state
                     });
                     // Delay to avoid secondary rate limits
                     await sleep(1000);
@@ -407,7 +407,10 @@ jobs:
             const dryRun = process.env.DRY_RUN === 'true';
             const orgToken = process.env.ORG_TOKEN;
 
-            const upstreamAuth = { authorization: `token ${orgToken}` };
+            // Upstream calls need their own client — see the note in the
+            // upstream-to-downstream step (the token-auth hook clobbers
+            // caller-supplied authorization headers).
+            const upstream = new (github.constructor)({ auth: orgToken });
             const sleep = (ms) => new Promise(resolve => setTimeout(resolve, ms));
             const markerRe = new RegExp(`${upstreamMarker.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')}\\s*(\\d+)\\s*-->`);
 
@@ -436,12 +439,11 @@ jobs:
               const downstreamLink = `https://github.com/${downstreamOwner}/${downstreamRepo}/issues/${issue.number}`;
               const provenance = `> ⬆️ **Relayed from downstream:** [${downstreamOwner}/${downstreamRepo}#${issue.number}](${downstreamLink}) (author: @${issue.user?.login})\n>\n> _Status changes sync between the two copies._\n\n---\n\n`;
 
-              const { data: upIssue } = await github.request('POST /repos/{owner}/{repo}/issues', {
+              const { data: upIssue } = await upstream.request('POST /repos/{owner}/{repo}/issues', {
                 owner: upstreamOwner,
                 repo: upstreamRepo,
                 title: issue.title,
-                body: provenance + (issue.body || '_No description provided._'),
-                headers: upstreamAuth
+                body: provenance + (issue.body || '_No description provided._')
               });
               await sleep(1000);
 
@@ -450,12 +452,11 @@ jobs:
               // the state now — no status event will fire to correct it
               // (PR #237 Copilot review).
               if (issue.state === 'closed') {
-                await github.request('PATCH /repos/{owner}/{repo}/issues/{issue_number}', {
+                await upstream.request('PATCH /repos/{owner}/{repo}/issues/{issue_number}', {
                   owner: upstreamOwner,
                   repo: upstreamRepo,
                   issue_number: upIssue.number,
-                  state: 'closed',
-                  headers: upstreamAuth
+                  state: 'closed'
                 });
                 await sleep(1000);
               }

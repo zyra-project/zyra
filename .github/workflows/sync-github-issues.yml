@@ -78,6 +78,11 @@ jobs:
             const dryRun = process.env.DRY_RUN === 'true';
             const orgToken = process.env.ORG_TOKEN;
 
+            if (!orgToken) {
+              core.setFailed('SYNC_PAT_ORG secret is empty or unset — upstream calls cannot authenticate.');
+              return;
+            }
+
             // Upstream calls need their own client: Octokit's token-auth hook
             // overwrites any caller-supplied authorization header after merging
             // request options, so `headers: {authorization: ...}` on
@@ -235,6 +240,11 @@ jobs:
             const upstreamMarker = process.env.UPSTREAM_MARKER;
             const dryRun = process.env.DRY_RUN === 'true';
             const orgToken = process.env.ORG_TOKEN;
+
+            if (!orgToken) {
+              core.setFailed('SYNC_PAT_ORG secret is empty or unset — upstream calls cannot authenticate.');
+              return;
+            }
 
             // Upstream calls need their own client — see the note in the
             // upstream-to-downstream step (the token-auth hook clobbers
@@ -406,6 +416,11 @@ jobs:
             const upstreamMarker = process.env.UPSTREAM_MARKER;
             const dryRun = process.env.DRY_RUN === 'true';
             const orgToken = process.env.ORG_TOKEN;
+
+            if (!orgToken) {
+              core.setFailed('SYNC_PAT_ORG secret is empty or unset — upstream calls cannot authenticate.');
+              return;
+            }
 
             // Upstream calls need their own client — see the note in the
             // upstream-to-downstream step (the token-auth hook clobbers
